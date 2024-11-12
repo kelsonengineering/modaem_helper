@@ -16,9 +16,13 @@ TODO: Move geospatial I/O to geopandas.
 
 """
 
-from typing import Any, Callable
+from typing import Any, Callable, Generator
+from enum import Enum
 
-import shapefile as shp
+from shapefile import Reader
+
+from .element import Element
+from .model import Model
 
 Evaluator = Callable[[Any, dict[str, Any], Any], Any]
 
@@ -40,14 +44,16 @@ def eval_object(s: Any,
     :param default: The default value to be returned if no input is provided
     :return: A Python object.
     """
-    if isinstance(s, str) and not s:
+    if not isinstance(s, str):
+        return s
+    if not s:
         return default
     return eval(s, config)
 
 
 def eval_float(s: str,
                config: dict[str, Any] = None,
-               default: Any = None) -> float:
+               default: Any = None) -> float | None:
     """
     Evaluate a string using the configuration given and return a float.
 
@@ -56,12 +62,15 @@ def eval_float(s: str,
     :param default: The default value to be returned if no input is provided
     :return: A floating point value.
     """
-    return float(eval_object(s, config, default))
+    ob = eval_object(s, config, default)
+    if ob is None:
+        return ob
+    return float(ob)
 
 
 def eval_int(s: str,
              config: dict[str, Any] = None,
-             default: Any = None) -> int:
+             default: Any = None) -> int | None:
     """
     Evaluate a string using the configuration given and return an int.
 
@@ -70,12 +79,15 @@ def eval_int(s: str,
     :param default: The default value to be returned if no input is provided
     :return: A floating point value.
     """
-    return int(eval_object(s, config, default))
+    ob = eval_object(s, config, default)
+    if ob is None:
+        return ob
+    return int(ob)
 
 
 def eval_bool(s: str,
               config: dict[str, Any] = None,
-              default: Any = None) -> bool:
+              default: Any = None) -> bool | None:
     """
     Evaluate a string using the configuration given and return an int.
 
@@ -84,7 +96,10 @@ def eval_bool(s: str,
     :param default: The default value to be returned if no input is provided
     :return: A floating point value.
     """
-    return bool(eval_object(s, config, default))
+    ob = eval_object(s, config, default)
+    if ob is None:
+        return ob
+    return bool(ob)
 
 
 Constraint = Callable[[Any], bool]
@@ -95,17 +110,83 @@ class ValidationError(Exception):
 
 
 def validate(value: Any,
-             constraints: list[tuple[Constraint, str]]) -> bool:
+             test_function: Constraint = None,
+             failure_message: str = "Constraint failed"):
     """
     Validates a value against one or more constraints, using functions or
     lambdas.
 
     :param value: A python object to validate
-    :param constraints: A list of (test_function, failure_message) pairs
-    :return: True if all validations succeeded else False
+    :param test_function: A test_function to be used
+    :param failure_message: The message to be reported on failure
     """
-    for test_function, failure_message in constraints:
-        if not test_function(value):
-            raise ValidationError(f"Validation fails for value {value}: {failure_message}")
+    if not test_function(value):
+        raise ValidationError(f"Validation fails for value {value}: {failure_message}")
 
-    return True
+
+############
+# Shapefile support via pyshp
+############
+
+
+class ShapeScaling(Enum):
+    NONE = 1.0
+    METERS_TO_FEET = 0.3048
+    FEET_TO_METERS = 1.0 / 0.3048
+
+
+def _read_points(rdr: Reader, i: int, scale: float = ShapeScaling.NONE) -> list[tuple[float, float]]:
+    return [(x * scale, y * scale) for x, y in rdr.shape(i).points]
+
+
+def _read_attrs(rdr: Reader, i: int, field_names):
+    return {name: value for name, value in zip(field_names, rdr.record(i))}
+
+
+def shapefile_reader(file_name: str, scale: float = ShapeScaling.NONE):
+    with Reader(file_name) as rdr:
+        # Find the explanation for the next line in the `pyshp` documentation ;-)
+        field_names = [f[0] for f in rdr.fields[1:]]
+        for i in range(rdr.numShapes):
+            yield _read_points(rdr, i, scale), _read_attrs(rdr, i, field_names)
+
+
+def read_element_shapefile(ml: Model,
+                           filename: str,
+                           element_type: type[Element],
+                           config: dict[str, Any] = None,
+                           scale: float = ShapeScaling.NONE):
+    """
+    Reads WL0 well elements from the shapefile and adds them to the Model.
+    :param ml: A modaem_helper.model.Model object
+    :param config: The model configuration dictionary
+    :param element_type: An element type to be generated from shapefile records
+    :param filename: The name of the shapefile to read
+    :param scale: The scaling factor for the spatial data
+    :return: The number of features that were read
+    """
+    for xy, attrs in shapefile_reader(filename, scale):
+        ml.add_element(element_type(xy, attrs, config))
+
+
+############
+# Support for writing ModAEM input files
+############
+
+
+def package_header(package_id: str, *package_options: Any) -> Generator[str]:
+    """
+    Yields a package header string for a ModAEM package, with the provided options
+    :param package_id: A short ModAEM package name, e.g. 'wl0'
+    :param package_options: A list of package options, e.g. the number of entries
+    :return: A package header string for writing to the ModAEM input file.
+    """
+    yield f"{package_id} {" ".join(str(i) for i in package_options)}"
+
+
+def package_end() -> Generator[str]:
+    """
+    Yields a package ending flag. In ModAEM-1.8, it's just the word "end"
+    :return: A generator that yields the `end` directive
+    """
+    yield "end"

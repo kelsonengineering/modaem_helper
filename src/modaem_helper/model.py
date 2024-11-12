@@ -20,17 +20,6 @@ from .areasink import As0Element
 from .inhomogeneity import In0String, In0Domain
 
 
-ElementType = Union[Wl0Element,
-                    Wl1Element,
-                    Ls0Element,
-                    Ls1Element,
-                    Ls2Element,
-                    As0Element,
-                    In0String,
-                    In0Domain,
-                    ]
-
-
 @dataclass
 class ReferenceField:
     """
@@ -77,11 +66,3 @@ class Model:
         """
         return self.element_dict.get(name, None)
 
-    def collect_elements(self, element_type: ElementType) -> list[Element]:
-        """
-        Collects all the elements that match the specified ElementType and returns them
-        as a list.
-        :param element_type: The type of Element to be collected
-        :return: A list of Elements
-        """
-        return [el for el in self.elements if type(el) is element_type]

@@ -8,9 +8,16 @@ $
 
 """
 
+from typing import Any, Protocol
 
-class Element(object):
+
+class Element(Protocol):
     """
     Base class for modaem_helper elements.
     """
-    ...
+    def __init__(self,
+                 xy: list[tuple[float, float]],
+                 attrs: dict[str, Any],
+                 config: dict[str, Any]):
+        ...
+
