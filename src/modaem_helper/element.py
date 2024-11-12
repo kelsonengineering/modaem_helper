@@ -8,9 +8,9 @@ $
 
 """
 
+
 class Element(object):
     """
     Base class for modaem_helper elements.
     """
-
-    def __init__(self, ml:Model):
+    ...

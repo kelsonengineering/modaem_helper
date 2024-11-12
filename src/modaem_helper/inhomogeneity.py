@@ -12,7 +12,13 @@ from dataclasses import dataclass
 
 from .element import Element
 
+
 @dataclass
-class As0Element(Element):
+class In0Domain(Element):
+    ...
+
+
+@dataclass
+class In0String(Element):
     ...
 
