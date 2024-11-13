@@ -16,7 +16,7 @@ TODO: Move geospatial I/O to geopandas.
 
 """
 
-from typing import Any, Callable, Generator
+from typing import Any, Callable, Generator, Tuple
 from enum import Enum
 
 from shapefile import Reader
@@ -135,15 +135,36 @@ class ShapeScaling(Enum):
     FEET_TO_METERS = 1.0 / 0.3048
 
 
-def _read_points(rdr: Reader, i: int, scale: float = ShapeScaling.NONE) -> list[tuple[float, float]]:
+ShapeXy = list[tuple[float, float]]
+ShapeAttrs = dict[str, Any]
+
+
+def _read_points(rdr: Reader, i: int, scale: float = ShapeScaling.NONE) -> ShapeXy:
+    """
+    Reads points from a shapefile and optionally scales them
+    :param rdr: An open shapefile.Reader object
+    :param i: The item to be read from the shapefile
+    :param scale: The scaling factor for x and y data
+    :return: A list of (x, y) tuples
+    """
     return [(x * scale, y * scale) for x, y in rdr.shape(i).points]
 
 
-def _read_attrs(rdr: Reader, i: int, field_names):
+def _read_attrs(rdr: Reader, i: int, field_names) -> ShapeAttrs:
+    """
+    Reads attributes from a shapefile. The pyshp shapefile reader returns records
+    as tuples, and our preprocessing API uses dictionaries.
+    :param rdr: A shapefile.Reader object
+    :param i: The item to be read from the shapefile
+    :param field_names: The field names of the shapefile
+    :return: A dict of [str, attribute] data
+    """
     return {name: value for name, value in zip(field_names, rdr.record(i))}
 
 
-def shapefile_reader(file_name: str, scale: float = ShapeScaling.NONE):
+def shapefile_reader(file_name: str,
+                     scale: float = ShapeScaling.NONE
+                     ) -> tuple[ShapeXy, ShapeAttrs]:
     with Reader(file_name) as rdr:
         # Find the explanation for the next line in the `pyshp` documentation ;-)
         field_names = [f[0] for f in rdr.fields[1:]]

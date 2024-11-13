@@ -8,6 +8,10 @@ Tests for modaem_helper/io.py
 
 """
 
+import pytest
+import shapefile
+import tempfile
+
 from modaem_helper import io
 
 
@@ -85,4 +89,16 @@ class TestEvalBool:
         assert io.eval_bool(s="TRUE", config=self.config, default=0) is True
 
 
+# Test ths shapefile support
+
+@pytest.fixture():
+def shapefile_config() -> None:
+    """
+    Prepares a shapefile with two items in it.
+    :return: None
+    """
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        shape_path = pathlib.Path(tmpdirname) / "tempshape"
+        w = shapefile.Writer(shape_path, shapeType=shapefile.POINT)
+        w.field("NAME", "C", l)
 
