@@ -4,15 +4,17 @@ modaem_helper/$/$
 Copyright (c) .year Vic Kelson, Kelson Engineering LLC
 All Rights Reserved
 
-Tests for modaem_helper/io.py
+Tests for modaem_helper/aem_io.py
 
 """
+
+import pathlib
 
 import pytest
 import shapefile
 import tempfile
 
-from modaem_helper import io
+from modaem_helper import aem_io
 
 
 class TestEvalObject:
@@ -38,17 +40,17 @@ class TestEvalFloat:
         assert io.eval_float("") is None
 
     def test_empty_string_with_default(self):
-        assert io.eval_int(s="", config=self.config, default=-20.0) == -20.0
+        assert io.eval_float(s="", config=self.config, default=-20.0) == -20.0
 
     def test_float_string(self):
-        assert io.eval_float("99.9") == 99.9
+        assert aem_io.eval_float("99.9") == 99.9
 
     def test_float_object(self):
         assert io.eval_float(-99.9) == -99.9
 
     def test_float_substitution(self):
         s = "2 * PI"
-        assert io.eval_float(s, self.config, default=0.0) == 6.28
+        assert aem_io.eval_float(s, self.config, default=0.0) == 6.28
 
 
 class TestEvalInt:
@@ -74,7 +76,7 @@ class TestEvalBool:
     config = {"TRUE": True}
 
     def test_empty_string(self):
-        assert io.eval_bool(s="") is None
+        assert aem_io.eval_bool(s="") is None
 
     def test_empty_string_with_default(self):
         assert io.eval_bool(s="", config=self.config, default=False) is False
@@ -83,7 +85,7 @@ class TestEvalBool:
         assert io.eval_bool(s="True") is True
 
     def test_bool_object(self):
-        assert io.eval_bool(True or False) is True
+        assert aem_io.eval_bool(True or False) is True
 
     def test_bool_substitution(self):
         assert io.eval_bool(s="TRUE", config=self.config, default=0) is True
@@ -91,14 +93,33 @@ class TestEvalBool:
 
 # Test ths shapefile support
 
-@pytest.fixture():
-def shapefile_config() -> None:
+@pytest.fixture()
+def shapefile_config() -> str:
     """
     Prepares a shapefile with two items in it.
     :return: None
     """
     with tempfile.TemporaryDirectory() as tmpdirname:
-        shape_path = pathlib.Path(tmpdirname) / "tempshape"
+        shape_path = pathlib.Path(tmpdirname) / "temp_shape"
         w = shapefile.Writer(shape_path, shapeType=shapefile.POINT)
-        w.field("NAME", "C", l)
+        w.field("NAME", "C", 32)
+        w.field("QW", "C", 32)
+        w.field("RW", "C", 32)
+        w.point(100.0, 100.0)
+        w.record("TEST", "10000.0", "0.5")
+        w.close()
+        yield shape_path
 
+
+def test_read_shapefile(shapefile_config) -> None:
+    """
+    Test input from a shapefile.
+    :param shapefile_config: A shapefile path provided by a fixture
+    """
+    rdr = io.shapefile_reader(shapefile_config, scale=io.SCALE_NONE)
+    xy, attrs = next(rdr)
+    assert attrs["NAME"] == "TEST"
+    assert attrs["QW"] == "10000.0"
+    assert attrs["RW"] == "0.5"
+    assert len(xy) == 1
+    assert xy[0] == (100.0, 100.0)

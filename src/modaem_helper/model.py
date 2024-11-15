@@ -10,14 +10,11 @@ $
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Union
+from typing import Generator
 from math import pi
 
+from .aem_io import Shape
 from .element import Element
-from .well import Wl0Element, Wl1Element
-from .linesink import Ls0Element, Ls1Element, Ls2Element
-from .areasink import As0Element
-from .inhomogeneity import In0String, In0Domain
 
 
 @dataclass
@@ -32,18 +29,28 @@ class ReferenceField:
     orientation: float = 0.0    # Reference gradient orientation (in degrees)
 
 
-@dataclass
 class Model:
     """
     Contains a modaem_helper groundwater flow model.
     """
-    elements: list[Element]             # All the elements in the model
-    element_dict: dict[str, Element]    # A {name: element,...} look-up dict
-    reference_field: ReferenceField | None
-    z_bottom: float = 0.0
-    z_top: float = 1.0
-    k: float = 1.0
-    n_e: float = 0.2
+    elements: list[Element]                         # All the elements in the model
+    element_dict: dict[str, Element]                # A {name: element,...} look-up dict
+    z_bottom: float = 0.0                           # Bottom elevation of the infinite aquifer
+    z_top: float = 1.0                              # Top elevation of the infinite aqujfer
+    k: float = 1.0                                  # Hydraulic conductivity of the infinite aquifer
+    n_e: float = 0.2                                # Effective porosity of the infinite aquifer
+    reference_field: ReferenceField | None = None   # Reference flow field, if provided
+
+    def __init__(self, z_bottom: float, z_top: float,
+                 k: float, n_e: float,
+                 reference_field: ReferenceField = None) -> None:
+        self.z_bottom = z_bottom
+        self.z_top = z_top
+        self.k = k
+        self.n_e = n_e
+        self.reference_field = reference_field
+        self.elements = []
+        self.element_dict = {}
 
     def add_element(self, el: Element) -> Element:
         """
@@ -66,3 +73,19 @@ class Model:
         """
         return self.element_dict.get(name, None)
 
+    def read_element_shapefile(self,
+                               rdr: Generator[Shape],
+                               element_type: type[Element]
+                               ) -> list[Element]:
+        """
+        Reads a shapefile of well (WL0) elements and places them in the Model instance.
+        :param rdr: A shape generator, e.g.  aem_io.shapefile_reader
+        :param element_type: the element type to be created
+        :return: A list of all Element objects that were read
+        """
+        result = []
+        for xy, attrs in rdr:
+            element = element_type(xy, attrs)
+            self.add_element(element)
+            result.append(element)
+        return result

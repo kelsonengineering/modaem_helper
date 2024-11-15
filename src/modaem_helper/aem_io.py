@@ -17,12 +17,8 @@ TODO: Move geospatial I/O to geopandas.
 """
 
 from typing import Any, Callable, Generator, Tuple
-from enum import Enum
 
 from shapefile import Reader
-
-from .element import Element
-from .model import Model
 
 Evaluator = Callable[[Any, dict[str, Any], Any], Any]
 
@@ -51,7 +47,7 @@ def eval_object(s: Any,
     return eval(s, config)
 
 
-def eval_float(s: str,
+def eval_float(s: Any,
                config: dict[str, Any] = None,
                default: Any = None) -> float | None:
     """
@@ -68,7 +64,7 @@ def eval_float(s: str,
     return float(ob)
 
 
-def eval_int(s: str,
+def eval_int(s: Any,
              config: dict[str, Any] = None,
              default: Any = None) -> int | None:
     """
@@ -85,7 +81,7 @@ def eval_int(s: str,
     return int(ob)
 
 
-def eval_bool(s: str,
+def eval_bool(s: Any,
               config: dict[str, Any] = None,
               default: Any = None) -> bool | None:
     """
@@ -128,18 +124,17 @@ def validate(value: Any,
 # Shapefile support via pyshp
 ############
 
-
-class ShapeScaling(Enum):
-    NONE = 1.0
-    METERS_TO_FEET = 0.3048
-    FEET_TO_METERS = 1.0 / 0.3048
+SCALE_NONE = 1.0
+SCALE_METERS_TO_FEET = 0.3048
+SCALE_FEET_TO_METERS = 1.0 / 0.3048
 
 
 ShapeXy = list[tuple[float, float]]
 ShapeAttrs = dict[str, Any]
+Shape = tuple[ShapeXy, ShapeAttrs]
 
 
-def _read_points(rdr: Reader, i: int, scale: float = ShapeScaling.NONE) -> ShapeXy:
+def _read_points(rdr: Reader, i: int, scale: float = SCALE_NONE) -> ShapeXy:
     """
     Reads points from a shapefile and optionally scales them
     :param rdr: An open shapefile.Reader object
@@ -163,8 +158,8 @@ def _read_attrs(rdr: Reader, i: int, field_names) -> ShapeAttrs:
 
 
 def shapefile_reader(file_name: str,
-                     scale: float = ShapeScaling.NONE
-                     ) -> tuple[ShapeXy, ShapeAttrs]:
+                     scale: float = SCALE_NONE
+                     ) -> Generator[Shape, None, None]:
     with Reader(file_name) as rdr:
         # Find the explanation for the next line in the `pyshp` documentation ;-)
         field_names = [f[0] for f in rdr.fields[1:]]
@@ -172,42 +167,5 @@ def shapefile_reader(file_name: str,
             yield _read_points(rdr, i, scale), _read_attrs(rdr, i, field_names)
 
 
-def read_element_shapefile(ml: Model,
-                           filename: str,
-                           element_type: type[Element],
-                           config: dict[str, Any] = None,
-                           scale: float = ShapeScaling.NONE):
-    """
-    Reads WL0 well elements from the shapefile and adds them to the Model.
-    :param ml: A modaem_helper.model.Model object
-    :param config: The model configuration dictionary
-    :param element_type: An element type to be generated from shapefile records
-    :param filename: The name of the shapefile to read
-    :param scale: The scaling factor for the spatial data
-    :return: The number of features that were read
-    """
-    for xy, attrs in shapefile_reader(filename, scale):
-        ml.add_element(element_type(xy, attrs, config))
-
-
-############
 # Support for writing ModAEM input files
-############
-
-
-def package_header(package_id: str, *package_options: Any) -> Generator[str]:
-    """
-    Yields a package header string for a ModAEM package, with the provided options
-    :param package_id: A short ModAEM package name, e.g. 'wl0'
-    :param package_options: A list of package options, e.g. the number of entries
-    :return: A package header string for writing to the ModAEM input file.
-    """
-    yield f"{package_id} {" ".join(str(i) for i in package_options)}"
-
-
-def package_end() -> Generator[str]:
-    """
-    Yields a package ending flag. In ModAEM-1.8, it's just the word "end"
-    :return: A generator that yields the `end` directive
-    """
-    yield "end"
+INDENT = "  "

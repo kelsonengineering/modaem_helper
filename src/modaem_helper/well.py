@@ -13,8 +13,8 @@ from typing import Any, Generator
 import logging
 import itertools
 
-from .element import Element
-from .io import eval_float, validate, package_header, package_end, ShapeScaling, shapefile_reader
+from .element import Element, ElementCollection
+from .aem_io import eval_float, validate, ShapeXy
 from .model import Model
 
 
@@ -27,9 +27,10 @@ class Wl0Element(Element):
     """
 
     def __init__(self,
-                 xy: list[tuple[float, float]],
+                 xy: ShapeXy,
                  attrs: dict[str, Any],
                  config=None):
+        super().__init__()
         self.xy = self._validate_xy(xy)
         self.name = str(attrs.get("NAME", ""))
         self.qw = eval_float(attrs.get("QW"), config=config)
@@ -37,48 +38,42 @@ class Wl0Element(Element):
         validate(self.rw, lambda z: z > 0.0, "Attribute RW cannot be negative")
 
     @staticmethod
-    def _validate_xy(xy: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    def _validate_xy(xy: ShapeXy) -> ShapeXy:
         if len(xy) > 1:
             logging.info("Wl0Element can only have one vertex - using the first")
         return xy[0: 1]
 
-    def to_modaem(self, element_id: int, indent: str = "  ") -> Generator[str]:
-        """
-        Yields up a sequence of text records for all the entries in the Element
-        :param element_id: The integer ID number that ties the element to ModAEM output files
-        :param indent: The indentation level
-        :return:
-        """
+    def header(self):
+        yield ""
+
+    def body(self, element_id) -> Generator[str, None, None]:
         x, y = self.xy[0]
-        yield f"{indent}({x}, {y}) {self.qw} {self.rw} {element_id}"
+        yield f"{INDENT}({x}, {y}) {self.qw} {self.rw} {element_id}"
+
+    def footer(self):
+        yield ""
 
 
-class Wl0Collection:
+class Wl0Collection(ElementCollection):
     """
     Contains a collection of only the Wl0Elements extracted from a Model object
     """
-    def __init__(self, model: Model):
-        self.elements = [el for el in model.elements if isinstance(el, Wl0Element)]
-        self.results = None
+    def __init__(self, model: Model) -> None:
+        super().__init__(model, Wl0Element)
 
-    def _body(self):
+    def header(self) -> Generator[str, None, None]:
+        """
+        Yields a text string for the head of the collection
+        :yield: The text "wl0 <number-of-wells>?
+        """
+        yield f"{INDENT}wl0 {len(self.elements)}"
+
+    def body(self) -> Generator[str, None, None]:
         for i, element in enumerate(self.elements):
             yield element.to_modaem(element_id=i)
 
-    def to_modaem(self, indent: str = "  ") -> Generator[str]:
-        """
-        Returns the ModAEM input representation of the collection. If there are no wells, returns
-        an empty string.
-        :return: The ModAEM input for the collection.
-        """
-        logging.info("Writing ModAEM input for Wl0 package")
-        for record in itertools.chain([package_header("wl0", len(self.elements)),
-                                       self._body(),
-                                       package_end(),
-                                       ]):
-            result = f"{indent}{record}"
-            logging.info(f"{result}")
-            yield result
+    def footer(self) -> Generator[str, None, None]:
+        yield "end"
 
 
 @dataclass
