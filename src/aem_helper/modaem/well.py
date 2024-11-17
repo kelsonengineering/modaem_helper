@@ -1,5 +1,5 @@
 """
-modaem_helper/$/$
+aem_helper/$/$
 
 Copyright (c) .year Vic Kelson, Kelson Engineering LLC
 All Rights Reserved
@@ -13,12 +13,12 @@ from typing import Any, Generator
 import logging
 import itertools
 
-from .element import Element, ElementCollection
-from .aem_io import eval_float, validate, ShapeXy
-from .model import Model
+from aem_helper.aem_element import BaseElement, BaseElementCollection
+from aem_helper.aem_io import eval_float, validate, ShapeXy
+from aem_helper.aem_model import Model
 
 
-class Wl0Element(Element):
+class Wl0Element(BaseElement):
     """
     Contains a single well at a point provided. If more than one vertex is given, only
     the first one will be utilized (for now).
@@ -54,7 +54,7 @@ class Wl0Element(Element):
         yield ""
 
 
-class Wl0Collection(ElementCollection):
+class Wl0Collection(BaseElementCollection):
     """
     Contains a collection of only the Wl0Elements extracted from a Model object
     """
@@ -70,14 +70,14 @@ class Wl0Collection(ElementCollection):
 
     def body(self) -> Generator[str, None, None]:
         for i, element in enumerate(self.elements):
-            yield element.to_modaem(element_id=i)
+            yield element.build(element_id=i)
 
     def footer(self) -> Generator[str, None, None]:
         yield "end"
 
 
 @dataclass
-class Wl1Element(Element):
+class Wl1Element(BaseElement):
     def __init__(self,
                  xy: list[tuple[float, float]],
                  attrs: dict[str, Any],

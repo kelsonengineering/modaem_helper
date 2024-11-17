@@ -1,10 +1,10 @@
 """
-modaem_helper/$/$
+aem_helper/$/$
 
 Copyright (c) .year Vic Kelson, Kelson Engineering LLC
 All Rights Reserved
 
-Tests for modaem_helper/aem_io.py
+Tests for aem_helper/aem_io.py
 
 """
 
@@ -14,7 +14,7 @@ import pytest
 import shapefile
 import tempfile
 
-from modaem_helper import aem_io
+from aem_helper import aem_io
 
 
 class TestEvalObject:

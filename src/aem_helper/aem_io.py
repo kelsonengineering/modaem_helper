@@ -1,14 +1,14 @@
 """
-modaem_helper/$/$
+aem_helper/$/$
 
 Copyright (c) .year Vic Kelson, Kelson Engineering LLC
 All Rights Reserved
 
-Module modaem_helper/io
+Module aem_helper/io
 
 This module implements a simple mechanism for reading geospatial data. For now,
-modaem_helper is limited to the ESRI Shapefile format for geospatial data sets.
-This results from the fact that v0.1 of modaem_helper is derived from the
+aem_helper is limited to the ESRI Shapefile format for geospatial data sets.
+This results from the fact that v0.1 of aem_helper is derived from the
 timml_helper scripts that I've developed for my Groundwater Flow Modeling class,
 and I'm in a hurry to get a ModAEM toolchain in place.
 
@@ -16,7 +16,7 @@ TODO: Move geospatial I/O to geopandas.
 
 """
 
-from typing import Any, Callable, Generator, Tuple
+from typing import Any, Callable, Generator, Iterable
 
 from shapefile import Reader
 
@@ -30,7 +30,7 @@ def eval_object(s: Any,
     Evaluate a string using the configuration given and return the object 
     represented there. If the string is empty, return `default`. 
     
-    modaem_helper expects that all the values read as attributes from geospatial
+    aem_helper expects that all the values read as attributes from geospatial
     data sets will be strings. However, some users might wish to work with 
     native data types. As a result, if the argument `s` is not a string, it
     will be returned unchanged.
@@ -165,6 +165,61 @@ def shapefile_reader(file_name: str,
         field_names = [f[0] for f in rdr.fields[1:]]
         for i in range(rdr.numShapes):
             yield _read_points(rdr, i, scale), _read_attrs(rdr, i, field_names)
+
+
+def set_missing_values(shapes: Generator[Shape], overwrite: bool = False,
+                       **missing_values: ShapeAttrs) -> Shape:
+    """
+    Sets missing values for the provided shape generator from the `missing_values` dictionary
+    If any of the keys in `missing_values` are present in the records read from the
+    iterable, `overwrite` determines whether or not to overwrite them with the provided
+    "missing" value.
+    :param shapes: A generator the provides (xy, attrs) shapes to modify
+    :param overwrite: Controls overwriting of existing key-value pairs
+    :param missing_values: A dict of {str: value} pairs for updating attributes of the shapes
+    :return: A generator that yields modified shapes
+
+    Example: GFLOW requires a "DEPTH" parameter for linesinks, while TimML does not. To
+    use the TimML data set with ModAEM, you can read the shapes as below:
+
+        set_missing_values(shapefile_reader("timml_linesinks"),
+                           DEPTH=10.0)
+                          )
+
+    No modifications to the original shapefile are necessary.
+    """
+    for xy, attrs in shapes:
+        for key, value in missing_values:
+            if (key not in attrs) or overwrite:
+                attrs[key] = value
+        yield xy, attrs
+
+
+def rename_keys(shapes: Generator[Shape], **rename_entries: dict[str, str]) -> Generator[Shape, None, None]:
+    """
+    Renames keys from the shapes read from a generator according to the provided `rename_entries`.
+    Yields up a sequence of modified shapes. This function is used to e.g. process data sets that
+    were developed for one model code to be utilized with a model code that has a different naming
+    convention. The philosophy of aem_helper is that the various supported codes will be able to
+    retain their own naming schemes.
+
+    Example: ModAEM calls the pumping rate for a well, "DISCHARGE" while TimML calls it "QW"... To
+    use the TimML data set with ModAEM, you can read the shapes as below:
+
+        rename_keys(shapefile_reader("timml_wells"),
+                    QW="DISCHARGE")
+                   )
+
+    No modifications to the original shapefile are necessary.
+    """
+    for xy, attrs in shapes:
+        new_attrs = {}
+        for key, value in attrs:
+            if key in rename_entries:
+                new_attrs[rename_entries[key]] = value
+            else:
+                new_attrs[key] = value
+        yield xy, new_attrs
 
 
 # Support for writing ModAEM input files

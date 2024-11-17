@@ -1,5 +1,5 @@
 """
-modaem_helper/$/$
+aem_helper/$/$
 
 Copyright (c) .year Vic Kelson, Kelson Engineering LLC
 All Rights Reserved
@@ -10,15 +10,15 @@ $
 
 from dataclasses import dataclass
 
-from .element import Element
+from aem_helper.aem_element import BaseElement
 
 
 @dataclass
-class In0Domain(Element):
+class In0Domain(BaseElement):
     ...
 
 
 @dataclass
-class In0String(Element):
+class In0String(BaseElement):
     ...
 
