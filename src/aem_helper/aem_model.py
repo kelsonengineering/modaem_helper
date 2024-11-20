@@ -10,14 +10,14 @@ $
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Generator
+from typing import Generator, Any
 from math import pi
 
 from .aem_io import Shape
 from .aem_element import BaseElement, BaseElementCollection
 
-
-ElementClasses = dict[type[BaseElement], type[BaseElementCollection]]
+# ElementClasses is a dict of friendly_name: (ElementType, ElementCollectionType)
+ElementClasses = dict[str, tuple[type[BaseElement], type[BaseElementCollection]]]
 
 @dataclass
 class ReferenceField:
@@ -38,6 +38,7 @@ class BaseModel:
     elements: list[BaseElement]                         # All the elements in the model
     element_dict: dict[str, BaseElement]                # A {name: element,...} look-up dict
     supported_elements: ElementClasses                  # Elements and collections for this type
+    last_id: int | None = None                          # The most-recently assigned element_id
 
     def __init__(self, supported_elements: ElementClasses) -> None:
         self.elements = []
@@ -82,13 +83,6 @@ class BaseModel:
             result.append(element)
         return result
 
-    def header(self) -> Generator[Any, None, None]:
-        """
-        Yields up all of the entries in the model's header output.
-        :return: A generator of the header elements
-        """
-        ...
-
     def body(self) -> Generator[Any, None, None]:
         """
         Yields up all of the entries in the model's body output.
@@ -97,20 +91,3 @@ class BaseModel:
         for element_type, collection_type in self.supported_elements.items():
             collection = collection_type(self.elements)
             yield from collection.build()
-
-    def footer(self) -> Generator[Any, None, None]:
-        """
-        Yields up all of the entries in the model's footer output.
-        :return: A generator of the header elements
-        """
-        ...
-
-
-    def build(self) -> Generator[Any, None, None]:
-        """
-        Builds the model, yielding all the outputs
-        :return: A generator of the output elements
-        """
-        yield from self.header()
-        yield from self.body()
-        yield from self.footer()

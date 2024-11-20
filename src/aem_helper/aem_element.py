@@ -11,44 +11,40 @@ $
 from __future__ import annotations
 from abc import abstractmethod
 from typing import Generator, Any
-from itertools import chain
+from itertools import chain, filter
 
 from .aem_io import ShapeXy, ShapeAttrs, INDENT
 
 
-class BaseElement:
+class Builder:
     """
-    Base class for aem_helper elements.
+    A mix-in class for objects that need to be able to write output elements, either by generating
+    a sequence of text strings or by manufacturing objects. This mix-in provides a build() method
+    that processes generators header(), body(), and trailer() to build the preprocessor output.
+
+    Builder.build() is a generator that yields the sequence from the other generators, automatically
+    skipping entries that are None. If a Builder-derived class yields None, it will be skipped. By
+    default, the base-class behavior will yield up nothing; simply override header(), body(), and
+    trailer() in derived classes.
     """
-    @abstractmethod
-    def __init__(self, xy: ShapeXy, attrs: ShapeAttrs, config: dict[str, Any]):
-        ...
 
-    @staticmethod
-    @abstractmethod
-    def _validate_xy(xy: ShapeXy) -> ShapeXy:
-        ...
-
-    @abstractmethod
     def header(self) -> Generator[str, None, None]:
         """
         Yields the element's header record (if any)
         """
-        ...
+        yield None
 
-    @abstractmethod
-    def body(self, element_id: int) -> Generator[str, None, None]:
+    def body(self) -> Generator[str, None, None]:
         """
         Yields a sequence of the element's internal records
         """
-        ...
+        yield None
 
-    @abstractmethod
     def footer(self) -> Generator[str, None, None]:
         """
         Yields the element's end record, if any. By default, this is an empty string
         """
-        ...
+        yield None
 
     def build(self, element_id: int) -> Generator[Any, None, None]:
         """
@@ -56,39 +52,56 @@ class BaseElement:
         For example, in ModAEM or GFLOW this would yield one or more strings as a sequence,
         for TimML or TTim, it would yield code objects, etc.
         """
-        yield from chain([self.header(), self.body(), self.footer()])
+        yield from filter(lambda z: z is not None,
+                          chain([self.header(), self.body(), self.footer()]))
 
 
-class BaseElementCollection:
+class BaseElement(Builder):
+    """
+    Base class for aem_helper elements.
+    """
+    def __init__(self, xy: ShapeXy, attrs: ShapeAttrs, config: dict[str, Any]):
+        """
+        Initialize the element. The Model object containing the Element will set the element_id.
+        :param xy: Geometry of the Element
+        :param attrs: Attributes of the Element from model input
+        :param config: Configuration dict for the model
+        """
+        self.element_id = None
+        self.xy = self.validate_xy(xy)
+        self.process_attrs(attrs, config)
+
+    @staticmethod
+    @abstractmethod
+    def validate_xy(xy: ShapeXy) -> ShapeXy:
+        """
+        Validates the (x, y) pairs for the element, raising an exception on error, and stores
+        the result in the element..
+        :param xy:
+        :return:
+        """
+        ...
+
+    def process_attrs(self, attrs: dict[str, Any], config: dict[str, Any]) -> None:
+        """
+        Processes the provided attributes for the shape, setting local Element attributes.
+        :param attrs: A {name: value} dict for attributes read from model input
+        :param config: A {name: value} dict for the model configuration
+        :return: Nothing - this method sets local Element attributes.
+        """
+        ...
+
+    def set_element_id(self, element_id: int) -> None:
+        """
+        Sets the element_id for the element.
+        :param element_id: Value of the element_id
+        """
+        self.element_id = element_id
+
+
+class BaseElementCollection(Builder):
     """
     Contains a list of elements, all the same type
     """
     def __init__(self, source_elements: list[BaseElement], element_type: type[BaseElement]):
         self.elements = [element for element in source_elements if type(element) is element_type]
-
-    @abstractmethod
-    def header(self) -> Generator[str, None, None]:
-        """
-        Yields the element's header record (if any)
-        """
-        ...
-
-    def body(self) -> Generator[str, None, None]:
-        """
-        Yields a sequence of the collection's internal elements
-        """
-        for element_id, element in enumerate(self.elements):
-            yield from (f"{INDENT}{s}" for s in element.body(element_id))
-
-    @abstractmethod
-    def footer(self) -> Generator[str, None, None]:
-        """
-        Yields the element's end record, if any. By default, this is an empty string
-        """
-        ...
-
-    def build(self) -> Generator[Any, None, None]:
-        """
-        Yields up a sequence of strings that provide the ModAEM input for this element
-        """
-        yield from chain([self.header(), self.body(), self.footer()])

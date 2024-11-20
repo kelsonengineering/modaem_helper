@@ -31,14 +31,14 @@ class Wl0Element(BaseElement):
                  attrs: dict[str, Any],
                  config=None):
         super().__init__()
-        self.xy = self._validate_xy(xy)
+        self.xy = self.validate_xy(xy)
         self.name = str(attrs.get("NAME", ""))
         self.qw = eval_float(attrs.get("QW"), config=config)
         self.rw = attrs.get("RW")
         validate(self.rw, lambda z: z > 0.0, "Attribute RW cannot be negative")
 
     @staticmethod
-    def _validate_xy(xy: ShapeXy) -> ShapeXy:
+    def validate_xy(xy: ShapeXy) -> ShapeXy:
         if len(xy) > 1:
             logging.info("Wl0Element can only have one vertex - using the first")
         return xy[0: 1]
@@ -82,14 +82,14 @@ class Wl1Element(BaseElement):
                  xy: list[tuple[float, float]],
                  attrs: dict[str, Any],
                  config=None):
-        self.xy = self._validate_xy(xy)
+        self.xy = self.validate_xy(xy)
         self.name = str(attrs.get("NAME", ""))
         self.specified_head = eval_float(attrs.get("HEAD"), config=config)
         self.rw = attrs.get("RW")
         validate(self.rw, lambda z: z > 0.0, "Attribute RW cannot be negative")
 
     @staticmethod
-    def _validate_xy(xy: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    def validate_xy(xy: list[tuple[float, float]]) -> list[tuple[float, float]]:
         if len(xy) > 1:
             logging.info("Wl1Element can only have one vertex - using the first")
         return xy[0: 1]

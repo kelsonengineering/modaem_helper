@@ -18,6 +18,12 @@ from ..aem_element import BaseElement
 from ..aem_model import BaseModel
 
 
+class Aquifer(BaseElement):
+    """
+    Contains the aquifer definition information, including inhomogeneity information
+    """
+
+
 @dataclass
 class ReferenceField:
     """
@@ -39,6 +45,7 @@ class Model(BaseModel):
     k: float = 1.0                                  # Hydraulic conductivity of the infinite aquifer
     n_e: float = 0.2                                # Effective porosity of the infinite aquifer
     reference_field: ReferenceField | None = None   # Reference flow field, if provided
+    last_id: int | None = None                      # The last element ID assigned in the Model
 
     def __init__(self, z_bottom: float, z_top: float,
                  k: float, n_e: float,
@@ -49,3 +56,5 @@ class Model(BaseModel):
         self.k = k
         self.n_e = n_e
         self.reference_field = reference_field
+
+
