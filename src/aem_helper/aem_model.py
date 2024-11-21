@@ -9,41 +9,30 @@ $
 """
 
 from __future__ import annotations
+
+import logging
 from dataclasses import dataclass
 from typing import Generator, Any
 from math import pi
 
 from .aem_io import Shape
-from .aem_element import BaseElement, BaseElementCollection
-
-# ElementClasses is a dict of friendly_name: (ElementType, ElementCollectionType)
-ElementClasses = dict[str, tuple[type[BaseElement], type[BaseElementCollection]]]
-
-@dataclass
-class ReferenceField:
-    """
-    Contains the reference point of the model, if provided
-    """
-    x_ref: float = 0.0          # Reference point x
-    y_ref: float = 0.0          # Reference point y
-    h_ref: float = 1.0          # Reference point head
-    dhdx: float = 0.0           # Reference hydraulic gradient
-    orientation: float = 0.0    # Reference gradient orientation (in degrees)
+from .aem_element import Builder, BaseElement, BaseElementCollection
 
 
-class BaseModel:
+class BaseModel(Builder):
     """
-    Contains a aem_helper groundwater flow model.
+    Contains an aem_helper preprocessor for ModAEM groundwater flow models.
     """
-    elements: list[BaseElement]                         # All the elements in the model
-    element_dict: dict[str, BaseElement]                # A {name: element,...} look-up dict
-    supported_elements: ElementClasses                  # Elements and collections for this type
-    last_id: int | None = None                          # The most-recently assigned element_id
+    elements: list[BaseElement]                                 # All the elements in the model
+    element_dict: dict[str, BaseElement]                        # A {name: element,...} look-up dict
+    supported_elements: dict[str, type[BaseElementCollection]]  # Elements and collections for this type
+    last_element_id: int                                        # The most-recently assigned element_id
 
     def __init__(self, supported_elements: ElementClasses) -> None:
         self.elements = []
         self.element_dict = {}
         self.supported_elements = supported_elements
+        self.last_element_id: int = 0
 
     def add_element(self, el: BaseElement) -> BaseElement:
         """
@@ -53,10 +42,19 @@ class BaseModel:
             will be added to the model's look-up dictionary
         :return: The added element.
         """
+        self.set_element_id(el)
         self.elements.append(el)
         if hasattr(el, "name") and el.name:
             self.element_dict[el.name] = el
         return el
+
+    def set_element_id(self, element: BaseElement):
+        """
+        Generates a new, unique id for the given element
+        :param element: The element that will receive a new element_id
+        """
+        self.last_element_id += 1
+        element.set_id(self.last_element_id)
 
     def get_element(self, name: str) -> BaseElement | None:
         """
@@ -66,19 +64,19 @@ class BaseModel:
         """
         return self.element_dict.get(name, None)
 
-    def read_element_shapefile(self,
-                               rdr: Generator[Shape],
-                               element_type: type[BaseElement]
-                               ) -> list[BaseElement]:
+    def read_element_shapefile(self, element_name: str, rdr: Generator[Shape]) -> list[BaseElement]:
         """
         Reads a shapefile of well (WL0) elements and places them in the Model instance.
         :param rdr: A shape generator, e.g.  aem_io.shapefile_reader
-        :param element_type: the element type to be created
+        :param element_name: the element name that keys into self.supported_elements
         :return: A list of all BaseElement objects that were read
         """
         result = []
+        element_collection = self.supported_elements.get(element_name, None)
+        if element_collection is None:
+            logging.fatal(f"No such element [{element_name}] in ModAEM models")
         for xy, attrs in rdr:
-            element = element_type(xy, attrs)
+            element = element_collection.element_type(xy, attrs)
             self.add_element(element)
             result.append(element)
         return result
@@ -88,6 +86,6 @@ class BaseModel:
         Yields up all of the entries in the model's body output.
         :return: A generator of the header elements
         """
-        for element_type, collection_type in self.supported_elements.items():
+        for element_type, collection_type in self.supported_elements.values():
             collection = collection_type(self.elements)
             yield from collection.build()

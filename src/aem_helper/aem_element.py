@@ -10,7 +10,7 @@ $
 
 from __future__ import annotations
 from abc import abstractmethod
-from typing import Generator, Any
+from typing import Generator, Any, List
 from itertools import chain, filter
 
 from .aem_io import ShapeXy, ShapeAttrs, INDENT
@@ -46,11 +46,11 @@ class Builder:
         """
         yield None
 
-    def build(self, element_id: int) -> Generator[Any, None, None]:
+    def build(self, element_id: int) -> Generator[str, None, None]:
         """
-        Yields up a sequence of entries corresponding to the input data for the element.
+        Yields up a sequence of text entries corresponding to the input data for the element.
         For example, in ModAEM or GFLOW this would yield one or more strings as a sequence,
-        for TimML or TTim, it would yield code objects, etc.
+        for TimML or TTim, it would yield text that contains Python code.
         """
         yield from filter(lambda z: z is not None,
                           chain([self.header(), self.body(), self.footer()]))
@@ -101,7 +101,10 @@ class BaseElement(Builder):
 
 class BaseElementCollection(Builder):
     """
-    Contains a list of elements, all the same type
+    Contains a list of elements, all the same type, for generating model input.
     """
-    def __init__(self, source_elements: list[BaseElement], element_type: type[BaseElement]):
-        self.elements = [element for element in source_elements if type(element) is element_type]
+    element_type: type[BaseElement]
+    elements: List[BaseElement]
+
+    def __init__(self, source_elements: list[BaseElement]):
+        self.elements = [element for element in source_elements if type(element) is self.element_type]

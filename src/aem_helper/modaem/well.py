@@ -13,7 +13,7 @@ from typing import Any, Generator
 import logging
 import itertools
 
-from aem_helper.aem_element import BaseElement, BaseElementCollection
+from aem_helper.aem_element import BaseElement, BasePackage
 from aem_helper.aem_io import eval_float, validate, ShapeXy
 from aem_helper.aem_model import Model
 
@@ -54,7 +54,7 @@ class Wl0Element(BaseElement):
         yield ""
 
 
-class Wl0Collection(BaseElementCollection):
+class Wl0Collection(BasePackage):
     """
     Contains a collection of only the Wl0Elements extracted from a Model object
     """

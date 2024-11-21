@@ -16,24 +16,13 @@ from math import pi
 from ..aem_io import Shape
 from ..aem_element import BaseElement
 from ..aem_model import BaseModel
+from .aquifer import Aquifer
 
 
 class Aquifer(BaseElement):
     """
     Contains the aquifer definition information, including inhomogeneity information
     """
-
-
-@dataclass
-class ReferenceField:
-    """
-    Contains the reference point of the model, if provided
-    """
-    x_ref: float = 0.0          # Reference point x
-    y_ref: float = 0.0          # Reference point y
-    h_ref: float = 1.0          # Reference point head
-    dhdx: float = 0.0           # Reference hydraulic gradient
-    orientation: float = 0.0    # Reference gradient orientation (in degrees)
 
 
 class Model(BaseModel):

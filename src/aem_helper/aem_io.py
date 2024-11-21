@@ -25,7 +25,7 @@ Evaluator = Callable[[Any, dict[str, Any], Any], Any]
 
 def eval_object(s: Any,
                 config: dict[str, Any] = None,
-                default=None) -> Any:
+                default: Any = None) -> Any:
     """
     Evaluate a string using the configuration given and return the object 
     represented there. If the string is empty, return `default`. 
@@ -40,8 +40,6 @@ def eval_object(s: Any,
     :param default: The default value to be returned if no input is provided
     :return: A Python object.
     """
-    if not isinstance(s, str):
-        return s
     if not s:
         return default
     return eval(s, config)
@@ -222,5 +220,5 @@ def rename_keys(shapes: Generator[Shape], **rename_entries: dict[str, str]) -> G
         yield xy, new_attrs
 
 
-# Support for writing ModAEM input files
+# Support for writing indented input files
 INDENT = "  "
