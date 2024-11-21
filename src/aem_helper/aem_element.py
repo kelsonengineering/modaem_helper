@@ -71,6 +71,13 @@ class BaseElement(Builder):
         self.xy = self.validate_xy(xy)
         self.process_attrs(attrs, config)
 
+    def set_element_id(self, element_id: int) -> None:
+        """
+        Sets the element_id for the element.
+        :param element_id: Value of the element_id
+        """
+        self.element_id = element_id
+
     @staticmethod
     @abstractmethod
     def validate_xy(xy: ShapeXy) -> ShapeXy:
@@ -82,6 +89,7 @@ class BaseElement(Builder):
         """
         ...
 
+    @abstractmethod
     def process_attrs(self, attrs: dict[str, Any], config: dict[str, Any]) -> None:
         """
         Processes the provided attributes for the shape, setting local Element attributes.
@@ -90,13 +98,6 @@ class BaseElement(Builder):
         :return: Nothing - this method sets local Element attributes.
         """
         ...
-
-    def set_element_id(self, element_id: int) -> None:
-        """
-        Sets the element_id for the element.
-        :param element_id: Value of the element_id
-        """
-        self.element_id = element_id
 
 
 class BaseElementCollection(Builder):

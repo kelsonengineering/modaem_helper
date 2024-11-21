@@ -21,14 +21,15 @@ from .aem_element import Builder, BaseElement, BaseElementCollection
 
 class BaseModel(Builder):
     """
-    Contains an aem_helper preprocessor for ModAEM groundwater flow models.
+    Contains an aem_helper preprocessor for analytic element groundwater flow models.
+
     """
     elements: list[BaseElement]                                 # All the elements in the model
     element_dict: dict[str, BaseElement]                        # A {name: element,...} look-up dict
-    supported_elements: dict[str, type[BaseElementCollection]]  # Elements and collections for this type
     last_element_id: int                                        # The most-recently assigned element_id
+    supported_elements: dict[str, type[BaseElementCollection]] | None = None
 
-    def __init__(self, supported_elements: ElementClasses) -> None:
+    def __init__(self) -> None:
         self.elements = []
         self.element_dict = {}
         self.supported_elements = supported_elements
@@ -54,7 +55,7 @@ class BaseModel(Builder):
         :param element: The element that will receive a new element_id
         """
         self.last_element_id += 1
-        element.set_id(self.last_element_id)
+        element.set_element_id(self.last_element_id)
 
     def get_element(self, name: str) -> BaseElement | None:
         """
@@ -86,6 +87,7 @@ class BaseModel(Builder):
         Yields up all of the entries in the model's body output.
         :return: A generator of the header elements
         """
-        for element_type, collection_type in self.supported_elements.values():
+        for element_name, collection_type in self.supported_elements.values():
+            loggint.info(f"Reading {element_name}")
             collection = collection_type(self.elements)
             yield from collection.build()
