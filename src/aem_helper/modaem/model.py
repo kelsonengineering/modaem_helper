@@ -19,21 +19,10 @@ from ..aem_model import BaseModel
 from .aquifer import Aquifer
 
 
-class Aquifer(BaseElement):
-    """
-    Contains the aquifer definition information, including inhomogeneity information
-    """
-
-
 class Model(BaseModel):
     """
     Contains a aem_helper groundwater flow model.
     """
-    z_bottom: float = 0.0                           # Bottom elevation of the infinite aquifer
-    z_top: float = 1.0                              # Top elevation of the infinite aqujfer
-    k: float = 1.0                                  # Hydraulic conductivity of the infinite aquifer
-    n_e: float = 0.2                                # Effective porosity of the infinite aquifer
-    reference_field: ReferenceField | None = None   # Reference flow field, if provided
     last_id: int | None = None                      # The last element ID assigned in the Model
 
     def __init__(self, z_bottom: float, z_top: float,
@@ -46,4 +35,8 @@ class Model(BaseModel):
         self.n_e = n_e
         self.reference_field = reference_field
 
+    def header(self) -> Generator[str, None, None]:
+        yield "aem\n"
 
+    def trailer(self) -> Generator[str, None, None]:
+        yield "eod\n"

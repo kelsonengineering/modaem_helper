@@ -88,6 +88,6 @@ class BaseModel(Builder):
         :return: A generator of the header elements
         """
         for element_name, collection_type in self.supported_elements.values():
-            loggint.info(f"Reading {element_name}")
+            logging.info(f"Processing {element_name}")
             collection = collection_type(self.elements)
             yield from collection.build()

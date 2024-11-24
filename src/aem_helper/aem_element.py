@@ -40,20 +40,20 @@ class Builder:
         """
         yield None
 
-    def footer(self) -> Generator[str, None, None]:
+    def trailer(self) -> Generator[str, None, None]:
         """
         Yields the element's end record, if any. By default, this is an empty string
         """
         yield None
 
-    def build(self, element_id: int) -> Generator[str, None, None]:
+    def build(self) -> Generator[str, None, None]:
         """
         Yields up a sequence of text entries corresponding to the input data for the element.
         For example, in ModAEM or GFLOW this would yield one or more strings as a sequence,
         for TimML or TTim, it would yield text that contains Python code.
         """
         yield from filter(lambda z: z is not None,
-                          chain([self.header(), self.body(), self.footer()]))
+                          chain([self.header(), self.body(), self.trailer()]))
 
 
 class BaseElement(Builder):
@@ -109,3 +109,18 @@ class BaseElementCollection(Builder):
 
     def __init__(self, source_elements: list[BaseElement]):
         self.elements = [element for element in source_elements if type(element) is self.element_type]
+
+    def __len__(self) -> int:
+        return len(self.elements)
+
+
+class BasePackage(Builder):
+    """
+    Contains one or more collections of elements, for generating a complex package of model input.
+    An example use is ModAEM's AQU package, which requires several classes of BaseElementCollection
+    containers for the model perimeter and inhomogeneities.
+    """
+
+    @abstractmethod
+    def __init__(self, source_elements: list[BaseElement]):
+        ...
