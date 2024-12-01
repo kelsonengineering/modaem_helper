@@ -11,9 +11,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Generator
 
-from ..aem_io import ShapeXy, eval_float, eval_int, eval_object
+from ..aem_io import ShapeXy, INDENT, eval_float
 from ..aem_element import Builder, BaseElement, BaseElementCollection, BasePackage
-
 
 
 @dataclass
@@ -30,7 +29,7 @@ class ReferenceField(BaseElement):
     @staticmethod
     def validate_xy(xy: ShapeXy) -> ShapeXy:
         if len(xy) > 1:
-            logging.warn("Only one point in the reference field is allowed. Using the first entry.")
+            logging.warning("Only one point in the reference field is allowed. Using the first entry.")
         return xy[0:1]
 
     def process_attrs(self, attrs: dict[str, Any], config: dict[str, Any]) -> None:
@@ -52,7 +51,7 @@ class AquBoundaryElement(BaseElement):
     def validate_xy(xy: ShapeXy) -> ShapeXy:
         """
         Validates the (x, y) pairs for the element, raising an exception on error, and stores
-        the result in the element..
+        the result in the element.
         :param xy:
         :return:
         """
@@ -95,7 +94,7 @@ class In0DomainElement(BaseElement):
     def validate_xy(xy: ShapeXy) -> ShapeXy:
         """
         Validates the (x, y) pairs for the element, raising an exception on error, and stores
-        the result in the element..
+        the result in the element.
         :param xy:
         :return:
         """
@@ -122,7 +121,7 @@ class In0StringElement(BaseElement):
     def validate_xy(xy: ShapeXy) -> ShapeXy:
         """
         Validates the (x, y) pairs for the element, raising an exception on error, and stores
-        the result in the element..
+        the result in the element.
         :param xy:
         :return:
         """
@@ -143,13 +142,13 @@ class In0StringCollection(BaseElementCollection):
     ...
 
 
-class Inhomogeneities(Builder):
+class Inhomogeneities(BasePackage):
     domains: In0DomainCollection
     strings: In0StringCollection
 
-    def __init__(self, domains: In0DomainCollection, strings: In0StringCollection) -> None:
-        self.domains = domains
-        self.strings = strings
+    def __init__(self, source_elements: list[BaseElement]) -> None:
+        self.domains = In0DomainCollection(source_elements)
+        self.strings = In0StringCollection(source_elements)
 
     @property
     def domain_count(self):
@@ -158,6 +157,9 @@ class Inhomogeneities(Builder):
     @property
     def string_count(self):
         return 0
+
+    def header(self):
+
 
 
 class Aquifer(BasePackage):
@@ -180,8 +182,7 @@ class Aquifer(BasePackage):
             self.reference_field = el[0]
 
         self.boundary = AquBoundaryCollection(source_elements)
-        self.inhomogeneities = Inhomogeneities(In0DomainCollection(source_elements),
-                                               In0StringCollection(source_elements))
+        self.inhomogeneities = Inhomogeneities(source_elements)
 
     @property
     def boundary_count(self) -> int:
@@ -190,6 +191,7 @@ class Aquifer(BasePackage):
     @property
     def domain_count(self) -> int:
         return self.inhomogeneities.domain_count
+
     @property
     def string_count(self):
         return self.inhomogeneities.string_count
