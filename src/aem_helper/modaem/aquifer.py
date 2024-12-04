@@ -7,12 +7,14 @@ All Rights Reserved
 $
 
 """
+
+from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import Any, Generator
 
-from ..aem_io import ShapeXy, INDENT, eval_float
-from ..aem_element import Builder, BaseElement, BaseElementCollection, BasePackage
+from ..aem_io import ShapeXy, eval_float
+from ..aem_element import BaseElement, BaseElementCollection, BasePackage
 
 
 @dataclass
@@ -20,11 +22,12 @@ class ReferenceField(BaseElement):
     """
     Contains the reference point of the model, if provided
     """
-    xy: tuple[float, float]     # Reference point x
-    y_ref: float = 0.0          # Reference point y
-    h_ref: float = 1.0          # Reference point head
-    dhdx: float = 0.0           # Reference hydraulic gradient
-    orientation: float = 0.0    # Reference gradient orientation (in degrees)
+    _aquifer: Aquifer | None = None # Aquifer object reference
+    xy: tuple[float, float]         # Reference point x
+    y_ref: float = 0.0              # Reference point y
+    h_ref: float = 1.0              # Reference point head
+    dhdx: float = 0.0               # Reference hydraulic gradient
+    orientation: float = 0.0        # Reference gradient orientation (in degrees)
 
     @staticmethod
     def validate_xy(xy: ShapeXy) -> ShapeXy:
@@ -37,9 +40,18 @@ class ReferenceField(BaseElement):
         self.dhdx = eval_float(attrs.get("SLOPE", None), config=config)
         self.orientation = eval_float(attrs.get("ANGLE", None), config=config)
 
+    def set_aquifer(self, aqu: Aquifer) -> None:
+        """
+        Provides a reference to the Aquifer object for computing the reference field discharge.
+        This method may be unnecessary if a future ModAEM version would receive dh/dx and orientation
+        as inputs, rather than Q_{x0} and Q_{y0}.
+        :param aqu: An aquifer object to be used.
+        """
+        self._aquifer = aqu
+
     def body(self):
         x, y = self.xy[0]
-        yield f"ref ({x}, {y}) {self.h_ref} {self.dhdx} {self}\n"
+        yield f"ref ({x}, {y}) {self.h_ref} {self.dhdx} {self.orientation}\n"
 
 
 class AquBoundaryElement(BaseElement):
@@ -159,7 +171,7 @@ class Inhomogeneities(BasePackage):
         return 0
 
     def header(self):
-
+        ...
 
 
 class Aquifer(BasePackage):
@@ -167,6 +179,7 @@ class Aquifer(BasePackage):
     z_top: float = 1.0                      # Top elevation
     kaq: float = 1.0                        # Hydraulic conductivity
     porosity: float = 0.2                   # Formation porosity
+    average_head: float = 1.0               # Estimated average head
     reference_field: ReferenceField | None = None
     boundary: AquBoundaryCollection | None = None
     inhomogeneities: Inhomogeneities | None = None
@@ -197,7 +210,16 @@ class Aquifer(BasePackage):
         return self.inhomogeneities.string_count
 
     def header(self) -> Generator[str, None, None]:
-        yield f"aqu {self.boundary_count} {self.domain_count} {self.string_count}\n"
+        yield " ".join(["aqu",
+                        f"{self.boundary_count}",
+                        f"{self.domain_count}",
+                        f"{self.string_count}",
+                        f"{self.z_bottom}",
+                        f"{self.z_top}",
+                        f"{self.kaq}",
+                        f"{self.porosity}",
+                        f"{self.average_head}\n"]
+                       )
 
     def trailer(self) -> Generator[str, None, None]:
         yield "end\n"
